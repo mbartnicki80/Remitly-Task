@@ -3,7 +3,6 @@ CREATE TABLE IF NOT EXISTS swift_codes (
     swift_code VARCHAR(11) PRIMARY KEY,
     bank_name TEXT NOT NULL,
     address TEXT,
-    town_name TEXT NOT NULL,
     country_name TEXT NOT NULL,
     is_headquarter BOOLEAN NOT NULL
 );

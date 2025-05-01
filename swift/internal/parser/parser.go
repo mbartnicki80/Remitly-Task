@@ -10,7 +10,6 @@ type SwiftRecord struct {
 	ISO2Code      string
 	BankName      string
 	Address       string
-	Town          string
 	Country       string
 	IsHeadquarter bool
 }
@@ -38,7 +37,6 @@ func ParseFromExcel(path string) ([]SwiftRecord, error) {
 			SwiftCode:     record[1],
 			BankName:      record[3],
 			Address:       record[4],
-			Town:          record[5],
 			Country:       record[6],
 			IsHeadquarter: isHeadquarter,
 		})
