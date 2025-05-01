@@ -11,21 +11,54 @@ func InsertRowsToDatabase(db *sql.DB, records []parser.SwiftRecord) error {
 		return err
 	}
 
-	query := `
+	insertSwift := `
 		INSERT INTO swift_codes (country_iso2_code, swift_code,
-		                         code_type, bank_name,
-		                         address, town_name,
-		                         country_name, time_zone)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+		                         bank_name, address, town_name,
+		                         country_name, is_headquarter)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
 		ON CONFLICT (swift_code) DO NOTHING
-		`
+	`
+
+	insertBranch := `
+		INSERT INTO branches (swift_code, headquarter)
+		VALUES ($1, $2)
+		ON CONFLICT (swift_code) DO NOTHING
+	`
 
 	for _, record := range records {
-		_, err := tx.Exec(query, record.ISO2, record.Code, record.Type,
-			record.Name, record.Address, record.Town, record.Country, record.TimeZone)
+		_, err := tx.Exec(insertSwift, record.ISO2Code, record.SwiftCode, record.BankName,
+			record.Address, record.Town, record.Country, record.IsHeadquarter)
 		if err != nil {
+			err := tx.Rollback()
+			if err != nil {
+				return err
+			}
 			return err
 		}
+
+		if !record.IsHeadquarter {
+			hqCode := record.SwiftCode[:8] + "XXX"
+
+			_, err := tx.Exec(insertSwift, record.ISO2Code, hqCode, record.BankName,
+				record.Address, record.Town, record.Country, true)
+			if err != nil {
+				err := tx.Rollback()
+				if err != nil {
+					return err
+				}
+				return err
+			}
+
+			_, err = tx.Exec(insertBranch, record.SwiftCode, hqCode)
+			if err != nil {
+				err := tx.Rollback()
+				if err != nil {
+					return err
+				}
+				return err
+			}
+		}
 	}
+
 	return tx.Commit()
 }

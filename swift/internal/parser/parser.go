@@ -2,17 +2,17 @@ package parser
 
 import (
 	"github.com/xuri/excelize/v2"
+	"strings"
 )
 
 type SwiftRecord struct {
-	Code     string
-	ISO2     string
-	Type     string
-	Name     string
-	Address  string
-	Town     string
-	Country  string
-	TimeZone string
+	SwiftCode     string
+	ISO2Code      string
+	BankName      string
+	Address       string
+	Town          string
+	Country       string
+	IsHeadquarter bool
 }
 
 func ParseFromExcel(path string) ([]SwiftRecord, error) {
@@ -31,15 +31,16 @@ func ParseFromExcel(path string) ([]SwiftRecord, error) {
 		if i == 0 {
 			continue
 		}
+		isHeadquarter := strings.HasSuffix(record[1], "XXX")
+
 		result = append(result, SwiftRecord{
-			ISO2:     record[0],
-			Code:     record[1],
-			Type:     record[2],
-			Name:     record[3],
-			Address:  record[4],
-			Town:     record[5],
-			Country:  record[6],
-			TimeZone: record[7],
+			ISO2Code:      record[0],
+			SwiftCode:     record[1],
+			BankName:      record[3],
+			Address:       record[4],
+			Town:          record[5],
+			Country:       record[6],
+			IsHeadquarter: isHeadquarter,
 		})
 	}
 
