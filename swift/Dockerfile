@@ -1,11 +1,15 @@
-FROM golang:1.24.2 AS builder
-WORKDIR /app
-COPY . .
-RUN GOARCH=amd64 GOOS=linux go build -o main ./cmd/main.go
-RUN chmod +x main
+FROM golang:1.24
 
-FROM alpine:latest
 WORKDIR /app
-COPY --from=builder /app/main .
-CMD ["./main"]
+
+COPY go.mod ./
+COPY go.sum ./
+RUN go mod download
+
+COPY . ./
+
+RUN go build -o main ./cmd/main.go
+
 EXPOSE 8080
+
+CMD ["/app/main"]

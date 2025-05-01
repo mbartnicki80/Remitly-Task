@@ -3,9 +3,9 @@ services:
     image: postgres:latest
     restart: always
     environment:
-      POSTGRES_DB: swift
-      POSTGRES_USER: user
-      POSTGRES_PASSWORD: pass
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
     ports:
       - "5432:5432"
     volumes:
@@ -20,10 +20,11 @@ services:
       - db
     environment:
       DB_HOST: db
-      DB_PORT: 5432
-      DB_USER: user
-      DB_PASSWORD: pass
-      DB_NAME: swift
+      DB_PORT: ${DB_PORT}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_NAME: ${DB_NAME}
 
 volumes:
   dbdata:
+
