@@ -18,19 +18,22 @@ func GetSwiftCodeHandler(db *sql.DB) gin.HandlerFunc {
 			return
 		}
 
-		if code.IsHeadquarter {
-			c.JSON(http.StatusOK, gin.H{
-				"address":       code.Address,
-				"bankName":      code.BankName,
-				"countryISO2":   code.CountryISO2,
-				"countryName":   code.CountryName,
-				"isHeadquarter": code.IsHeadquarter,
-				"swiftCode":     code.SwiftCode,
-				"branches":      branches,
-			})
-		} else {
-			c.JSON(http.StatusOK, code)
+		if branches == nil {
+			branches = []model.SwiftCode{}
 		}
+
+		response := gin.H{
+			"address":       code.Address,
+			"bankName":      code.BankName,
+			"countryISO2":   code.CountryISO2,
+			"countryName":   code.CountryName,
+			"isHeadquarter": code.IsHeadquarter,
+			"swiftCode":     code.SwiftCode,
+		}
+		if code.IsHeadquarter {
+			response["branches"] = branches
+		}
+		c.JSON(http.StatusOK, response)
 	}
 }
 

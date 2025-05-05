@@ -58,7 +58,7 @@ func main() {
 		{
 			swift.GET("/:swiftCode", api.GetSwiftCodeHandler(db))
 			swift.GET("/country/:countryISO2", api.GetSwiftCodesByCountryHandler(db))
-			swift.POST("/", api.CreateSwiftCodeHandler(db))
+			swift.POST("", api.CreateSwiftCodeHandler(db))
 			swift.DELETE("/:swiftCode", api.DeleteSwiftCodeHandler(db))
 		}
 	}

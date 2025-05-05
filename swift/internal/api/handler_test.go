@@ -35,7 +35,7 @@ func setupRouter(db *sql.DB) *gin.Engine {
 		{
 			swift.GET("/:swiftCode", GetSwiftCodeHandler(db))
 			swift.GET("/country/:countryISO2", GetSwiftCodesByCountryHandler(db))
-			swift.POST("/", CreateSwiftCodeHandler(db))
+			swift.POST("", CreateSwiftCodeHandler(db))
 			swift.DELETE("/:swiftCode", DeleteSwiftCodeHandler(db))
 		}
 	}
@@ -79,7 +79,7 @@ func TestCreateAndGetAndDeleteSwiftCode(t *testing.T) {
 		"isHeadquarter": true,
 		"bankName": "TEST"
 	}`
-	req := httptest.NewRequest("POST", "/v1/swift-codes/", strings.NewReader(payload))
+	req := httptest.NewRequest("POST", "/v1/swift-codes", strings.NewReader(payload))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
