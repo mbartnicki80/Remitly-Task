@@ -46,7 +46,7 @@ SELECT swift_codes.swift_code, swift_codes.address, swift_codes.is_headquarter,
 	   swift_codes.country_iso2_code, swift_codes.bank_name
 FROM branches
 JOIN swift_codes ON swift_codes.swift_code = branches.swift_code
-WHERE branches.swift_code = $1
+WHERE branches.headquarter = $1
 `
 
 	selectExists = `
