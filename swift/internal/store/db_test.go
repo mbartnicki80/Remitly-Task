@@ -29,25 +29,34 @@ ON CONFLICT (swift_code) DO NOTHING
 DELETE FROM swift_codes WHERE swift_code=$1
 `
 
-	FetchSwiftCodesByCountryQuery = `
+	fetchSwiftCodesByCountryQuery = `
 SELECT address, bank_name, country_iso2_code, is_headquarter, swift_code, country_name
 FROM swift_codes
 WHERE country_iso2_code = $1
 `
 
-	FetchSwiftCodeQuery = `
+	fetchSwiftCodeQuery = `
 SELECT swift_code, address, country_name, is_headquarter, country_iso2_code, bank_name
 FROM swift_codes
 WHERE swift_code = $1
 `
 
-	FetchBranchQuery = `
+	fetchBranchQuery = `
 SELECT swift_codes.swift_code, swift_codes.address, swift_codes.is_headquarter,
 	   swift_codes.country_iso2_code, swift_codes.bank_name
 FROM branches
 JOIN swift_codes ON swift_codes.swift_code = branches.swift_code
 WHERE branches.swift_code = $1
 `
+
+	selectExists = `
+SELECT EXISTS (SELECT 1 FROM swift_codes WHERE swift_code = $1)
+`
+	updateBranchesQuery = `
+			UPDATE branches 
+			SET headquarter = $1
+			WHERE headquarter IS NULL AND swift_code LIKE $2
+		`
 )
 
 func TestInsertRowsToDatabase(t *testing.T) {
@@ -83,6 +92,10 @@ func TestInsertRowsToDatabase(t *testing.T) {
 				WillReturnResult(sqlmock.NewResult(1, 1))
 		}
 
+		mock.ExpectQuery(selectExists).
+			WithArgs("PKOPPLPWXXX").
+			WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(true))
+
 		mock.ExpectExec(insertBranchQuery).
 			WithArgs("PKOPPLPW002", "PKOPPLPWXXX").
 			WillReturnResult(sqlmock.NewResult(1, 1))
@@ -106,7 +119,7 @@ func TestInsertRowsToDatabase(t *testing.T) {
 		require.NoError(t, mock.ExpectationsWereMet())
 	})
 
-	t.Run("insert branch without headquarter fails", func(t *testing.T) {
+	t.Run("insert branch without headquarter success", func(t *testing.T) {
 		db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
 		require.NoError(t, err)
 		defer db.Close()
@@ -119,21 +132,22 @@ func TestInsertRowsToDatabase(t *testing.T) {
 			Country:       "Poland",
 			IsHeadquarter: false,
 		}
-		hq := "PKOPPLPWXXX"
 
 		mock.ExpectBegin()
 		mock.ExpectExec(insertSwiftCodeQuery).
 			WithArgs(r.ISO2Code, r.SwiftCode, r.BankName, r.Address, r.Country, r.IsHeadquarter).
 			WillReturnResult(sqlmock.NewResult(1, 1))
 
-		mock.ExpectExec(insertBranchQuery).
-			WithArgs(r.SwiftCode, hq).
-			WillReturnError(errors.New("branch insert failed"))
+		mock.ExpectQuery(selectExists).
+			WithArgs("PKOPPLPWXXX").WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(false))
 
-		mock.ExpectRollback()
+		mock.ExpectExec(insertBranchQuery).
+			WithArgs(r.SwiftCode, nil).
+			WillReturnResult(sqlmock.NewResult(1, 1))
+		mock.ExpectCommit()
 
 		err = InsertRowsToDatabase(db, []parser.SwiftRecord{r})
-		require.ErrorContains(t, err, "branch insert failed")
+		require.NoError(t, err)
 		require.NoError(t, mock.ExpectationsWereMet())
 	})
 }
@@ -146,12 +160,12 @@ func TestFetchSwiftCode(t *testing.T) {
 
 		hqCode := "PKOPPLPWXXX"
 
-		mock.ExpectQuery(FetchSwiftCodeQuery).WithArgs(hqCode).
+		mock.ExpectQuery(fetchSwiftCodeQuery).WithArgs(hqCode).
 			WillReturnRows(sqlmock.NewRows([]string{
 				"swift_code", "address", "country_name", "is_headquarter", "country_iso2_code", "bank_name",
 			}).AddRow(hqCode, "Warsaw", "Poland", true, "PL", "PKO"))
 
-		mock.ExpectQuery(FetchBranchQuery).WithArgs(hqCode).
+		mock.ExpectQuery(fetchBranchQuery).WithArgs(hqCode).
 			WillReturnRows(sqlmock.NewRows([]string{
 				"swift_code", "address", "is_headquarter", "country_iso2_code", "bank_name",
 			}).AddRow("PKOPPLPW002", "Krakow", false, "PL", "PKO"))
@@ -169,7 +183,7 @@ func TestFetchSwiftCode(t *testing.T) {
 		defer db.Close()
 
 		swift := "PKOPPLPW002"
-		mock.ExpectQuery(FetchSwiftCodeQuery).
+		mock.ExpectQuery(fetchSwiftCodeQuery).
 			WithArgs(swift).
 			WillReturnRows(sqlmock.NewRows([]string{
 				"swift_code", "address", "country_name", "is_headquarter", "country_iso2_code", "bank_name",
@@ -186,7 +200,7 @@ func TestFetchSwiftCode(t *testing.T) {
 		require.NoError(t, err)
 		defer db.Close()
 
-		mock.ExpectQuery(FetchSwiftCodeQuery).
+		mock.ExpectQuery(fetchSwiftCodeQuery).
 			WithArgs("UNKNOWN").
 			WillReturnRows(sqlmock.NewRows([]string{}))
 
@@ -199,7 +213,7 @@ func TestFetchSwiftCode(t *testing.T) {
 		require.NoError(t, err)
 		defer db.Close()
 
-		mock.ExpectQuery(FetchSwiftCodeQuery).
+		mock.ExpectQuery(fetchSwiftCodeQuery).
 			WithArgs("ERR").
 			WillReturnError(errors.New("db error"))
 
@@ -215,7 +229,7 @@ func TestFetchSwiftCodesByCountry(t *testing.T) {
 		defer db.Close()
 
 		country := "PL"
-		mock.ExpectQuery(FetchSwiftCodesByCountryQuery).
+		mock.ExpectQuery(fetchSwiftCodesByCountryQuery).
 			WithArgs(country).
 			WillReturnRows(sqlmock.NewRows([]string{
 				"address", "bank_name", "country_iso2_code", "is_headquarter", "swift_code", "country_name",
@@ -232,7 +246,7 @@ func TestFetchSwiftCodesByCountry(t *testing.T) {
 		require.NoError(t, err)
 		defer db.Close()
 
-		mock.ExpectQuery(FetchSwiftCodesByCountryQuery).
+		mock.ExpectQuery(fetchSwiftCodesByCountryQuery).
 			WithArgs("XX").
 			WillReturnRows(sqlmock.NewRows([]string{}))
 
@@ -246,7 +260,7 @@ func TestFetchSwiftCodesByCountry(t *testing.T) {
 		require.NoError(t, err)
 		defer db.Close()
 
-		mock.ExpectQuery(FetchSwiftCodesByCountryQuery).
+		mock.ExpectQuery(fetchSwiftCodesByCountryQuery).
 			WithArgs("ERR").
 			WillReturnError(errors.New("db error"))
 
@@ -256,7 +270,7 @@ func TestFetchSwiftCodesByCountry(t *testing.T) {
 }
 
 func TestInsertNewSwiftCode(t *testing.T) {
-	t.Run("valid headquarter insert", func(t *testing.T) {
+	t.Run("valid headquarter insert without dangling branches", func(t *testing.T) {
 		db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
 		require.NoError(t, err)
 		defer db.Close()
@@ -279,6 +293,44 @@ func TestInsertNewSwiftCode(t *testing.T) {
 				swift.CountryName,
 				swift.IsHeadquarter,
 			).
+			WillReturnResult(sqlmock.NewResult(1, 1))
+
+		mock.ExpectExec(updateBranchesQuery).
+			WithArgs(swift.SwiftCode, swift.SwiftCode[:8]+"%").
+			WillReturnResult(sqlmock.NewResult(0, 0))
+
+		err = InsertNewSwiftCode(db, swift)
+		require.NoError(t, err)
+		require.NoError(t, mock.ExpectationsWereMet())
+	})
+
+	t.Run("valid headquarter insert with dangling branch", func(t *testing.T) {
+		db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
+		require.NoError(t, err)
+		defer db.Close()
+
+		swift := model.SwiftCode{
+			CountryISO2:   "PL",
+			SwiftCode:     "PKOPPLPWXXX",
+			BankName:      "PKO",
+			Address:       "Warsaw",
+			CountryName:   "Poland",
+			IsHeadquarter: true,
+		}
+
+		mock.ExpectExec(insertSwiftCodeQuery).
+			WithArgs(
+				swift.CountryISO2,
+				swift.SwiftCode,
+				swift.BankName,
+				swift.Address,
+				swift.CountryName,
+				swift.IsHeadquarter,
+			).
+			WillReturnResult(sqlmock.NewResult(1, 1))
+
+		mock.ExpectExec(updateBranchesQuery).
+			WithArgs(swift.SwiftCode, swift.SwiftCode[:8]+"%").
 			WillReturnResult(sqlmock.NewResult(1, 1))
 
 		err = InsertNewSwiftCode(db, swift)
@@ -308,6 +360,11 @@ func TestInsertNewSwiftCode(t *testing.T) {
 				swift.Address,
 				swift.CountryName,
 				swift.IsHeadquarter).WillReturnResult(sqlmock.NewResult(1, 1))
+
+		mock.ExpectQuery(selectExists).
+			WithArgs(hq).
+			WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(true))
+
 		mock.ExpectExec(insertBranchQuery).
 			WithArgs(swift.SwiftCode, hq).WillReturnResult(sqlmock.NewResult(1, 1))
 
@@ -316,16 +373,15 @@ func TestInsertNewSwiftCode(t *testing.T) {
 		require.NoError(t, mock.ExpectationsWereMet())
 	})
 
-	t.Run("branch insert fails due to missing headquarter", func(t *testing.T) {
+	t.Run("branch insert without headquarter", func(t *testing.T) {
 		db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
 		require.NoError(t, err)
 		defer db.Close()
-
 		swift := model.SwiftCode{
 			CountryISO2:   "PL",
-			SwiftCode:     "PKOPPLPWXYZ",
+			SwiftCode:     "PKOPPLPWABC",
 			BankName:      "PKO",
-			Address:       "Wroclaw",
+			Address:       "Warsaw",
 			CountryName:   "Poland",
 			IsHeadquarter: false,
 		}
@@ -338,16 +394,17 @@ func TestInsertNewSwiftCode(t *testing.T) {
 				swift.BankName,
 				swift.Address,
 				swift.CountryName,
-				swift.IsHeadquarter,
-			).
-			WillReturnResult(sqlmock.NewResult(1, 1))
+				swift.IsHeadquarter).WillReturnResult(sqlmock.NewResult(1, 1))
+
+		mock.ExpectQuery(selectExists).
+			WithArgs(hq).
+			WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(false))
 
 		mock.ExpectExec(insertBranchQuery).
-			WithArgs(swift.SwiftCode, hq).
-			WillReturnError(errors.New("foreign key violation: headquarter does not exist"))
+			WithArgs(swift.SwiftCode, nil).WillReturnResult(sqlmock.NewResult(1, 1))
 
 		err = InsertNewSwiftCode(db, swift)
-		require.ErrorContains(t, err, "headquarter does not exist")
+		require.NoError(t, err)
 		require.NoError(t, mock.ExpectationsWereMet())
 	})
 

@@ -9,7 +9,7 @@ CREATE TABLE IF NOT EXISTS swift_codes (
 
 CREATE TABLE IF NOT EXISTS branches (
     swift_code VARCHAR(11) PRIMARY KEY,
-    headquarter VARCHAR(11) NOT NULL,
+    headquarter VARCHAR(11),
     FOREIGN KEY (swift_code) REFERENCES swift_codes(swift_code) ON DELETE CASCADE,
     FOREIGN KEY (headquarter) REFERENCES swift_codes(swift_code) ON DELETE RESTRICT
 );

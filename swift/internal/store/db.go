@@ -7,6 +7,40 @@ import (
 	"log"
 )
 
+func InsertBranches(tx *sql.Tx, records []parser.SwiftRecord) error {
+	insertIntoBranchQuery := `
+		INSERT INTO branches (swift_code, headquarter)
+		VALUES ($1, $2)
+		ON CONFLICT (swift_code) DO NOTHING
+	`
+	var err error
+	for _, record := range records {
+		if !record.IsHeadquarter {
+			hqCode := record.SwiftCode[:8] + "XXX"
+			var exists bool
+			err = tx.QueryRow("SELECT EXISTS (SELECT 1 FROM swift_codes WHERE swift_code = $1)", hqCode).Scan(&exists)
+			if err != nil {
+				tx.Rollback()
+				return err
+			}
+
+			var hqPtr *string
+			if !exists {
+				hqPtr = nil
+			} else {
+				hqPtr = &hqCode
+			}
+
+			_, err = tx.Exec(insertIntoBranchQuery, record.SwiftCode, hqPtr)
+			if err != nil {
+				tx.Rollback()
+				return err
+			}
+		}
+	}
+	return tx.Commit()
+}
+
 func InsertRowsToDatabase(db *sql.DB, records []parser.SwiftRecord) error {
 	tx, err := db.Begin()
 	if err != nil {
@@ -21,12 +55,6 @@ func InsertRowsToDatabase(db *sql.DB, records []parser.SwiftRecord) error {
 		ON CONFLICT (swift_code) DO NOTHING
 	`
 
-	insertIntoBranchQuery := `
-		INSERT INTO branches (swift_code, headquarter)
-		VALUES ($1, $2)
-		ON CONFLICT (swift_code) DO NOTHING
-	`
-
 	for _, record := range records {
 		_, err := tx.Exec(insertSwiftCodeQuery, record.ISO2Code, record.SwiftCode, record.BankName,
 			record.Address, record.Country, record.IsHeadquarter)
@@ -37,18 +65,7 @@ func InsertRowsToDatabase(db *sql.DB, records []parser.SwiftRecord) error {
 		}
 	}
 
-	for _, record := range records {
-		if !record.IsHeadquarter {
-			hqCode := record.SwiftCode[:8] + "XXX"
-			_, err = tx.Exec(insertIntoBranchQuery, record.SwiftCode, hqCode)
-			if err != nil {
-				tx.Rollback()
-				return err
-			}
-		}
-	}
-
-	return tx.Commit()
+	return InsertBranches(tx, records)
 }
 
 func FetchSwiftCode(db *sql.DB, swiftCode string) (model.SwiftCode, []model.SwiftCode, error) {
@@ -164,12 +181,34 @@ func InsertNewSwiftCode(db *sql.DB, swiftCode model.SwiftCode) error {
 
 	if !swiftCode.IsHeadquarter {
 		hq := swiftCode.SwiftCode[:8] + "XXX"
+		var exists bool
+		err = db.QueryRow("SELECT EXISTS (SELECT 1 FROM swift_codes WHERE swift_code = $1)", hq).Scan(&exists)
+		if err != nil {
+			return err
+		}
+		var hqPtr *string
+		if !exists {
+			hqPtr = nil
+		} else {
+			hqPtr = &hq
+		}
+
 		insertIntoBranchQuery := `
 		INSERT INTO branches (swift_code, headquarter)
 		VALUES ($1, $2)
 		ON CONFLICT (swift_code) DO NOTHING
 		`
-		_, err = db.Exec(insertIntoBranchQuery, swiftCode.SwiftCode, hq)
+		_, err = db.Exec(insertIntoBranchQuery, swiftCode.SwiftCode, hqPtr)
+		if err != nil {
+			return err
+		}
+	} else {
+		updateBranchesQuery := `
+			UPDATE branches 
+			SET headquarter = $1
+			WHERE headquarter IS NULL AND swift_code LIKE $2
+		`
+		_, err = db.Exec(updateBranchesQuery, swiftCode.SwiftCode, swiftCode.SwiftCode[:8]+"%")
 		if err != nil {
 			return err
 		}
