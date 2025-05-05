@@ -19,8 +19,7 @@ Application should be accessible locally now at port 8080.
 You can use HTTP methods such as GET, POST, DELETE using tools like curl. <br />
 Examples: <br />
 curl -X GET http://localhost:8080/v1/swift-codes/AAISALTRXXX <br />
-curl -X POST http://localhost:8080/v1/swift-codes -H "Content-Type: application/json" -d '{"swiftCode":"NEWCODE123","address":"New Address","countryName":"Newland","countryISO2":"NL","isHeadquarter":true,"bankName":"New Bank"}'
-<br />
+curl -X POST http://localhost:8080/v1/swift-codes -H "Content-Type: application/json" -d "{\"swiftCode\":\"DEUTDEFFXXX\",\"address\":\"Neue Mainzer Straße 32-36\",\"countryName\":\"Germany\",\"countryISO2\":\"DE\",\"isHeadquarter\":true,\"bankName\":\"Deutsche Bank\"}" <br />
 curl -X DELETE http://localhost:8080/v1/swift-codes/NEWCODE123 <br />
 curl -X GET http://localhost:8080/v1/swift-codes/country/CL
 
