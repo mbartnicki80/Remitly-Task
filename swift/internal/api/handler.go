@@ -24,7 +24,7 @@ func GetSwiftCodeHandler(db *sql.DB) gin.HandlerFunc {
 				"bankName":      code.BankName,
 				"countryISO2":   code.CountryISO2,
 				"countryName":   code.CountryName,
-				"isHeadquarter": true,
+				"isHeadquarter": code.IsHeadquarter,
 				"swiftCode":     code.SwiftCode,
 				"branches":      branches,
 			})
@@ -39,6 +39,10 @@ func GetSwiftCodesByCountryHandler(db *sql.DB) gin.HandlerFunc {
 		iso2 := c.Param("countryISO2")
 		codes, err := store.FetchSwiftCodesByCountry(db, iso2)
 		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
+			return
+		}
+		if len(codes) == 0 {
 			c.JSON(http.StatusNotFound, gin.H{"error": "No SWIFT codes found"})
 			return
 		}

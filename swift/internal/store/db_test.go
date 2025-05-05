@@ -30,7 +30,7 @@ DELETE FROM swift_codes WHERE swift_code=$1
 `
 
 	FetchSwiftCodesByCountryQuery = `
-SELECT address, bank_name, country_iso2_code, is_headquarter, swift_code
+SELECT address, bank_name, country_iso2_code, is_headquarter, swift_code, country_name
 FROM swift_codes
 WHERE country_iso2_code = $1
 `
@@ -218,9 +218,9 @@ func TestFetchSwiftCodesByCountry(t *testing.T) {
 		mock.ExpectQuery(FetchSwiftCodesByCountryQuery).
 			WithArgs(country).
 			WillReturnRows(sqlmock.NewRows([]string{
-				"address", "bank_name", "country_iso2_code", "is_headquarter", "swift_code",
-			}).AddRow("Warsaw", "PKO", "PL", true, "PKOPPLPWXXX").
-				AddRow("Krakow", "PKO", "PL", false, "PKOPPLPW002"))
+				"address", "bank_name", "country_iso2_code", "is_headquarter", "swift_code", "country_name",
+			}).AddRow("Warsaw", "PKO", "PL", true, "PKOPPLPWXXX", "Poland").
+				AddRow("Krakow", "PKO", "PL", false, "PKOPPLPW002", "Poland"))
 
 		result, err := FetchSwiftCodesByCountry(db, country)
 		require.NoError(t, err)

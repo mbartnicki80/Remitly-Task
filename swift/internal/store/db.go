@@ -120,7 +120,7 @@ func FetchSwiftCode(db *sql.DB, swiftCode string) (model.SwiftCode, []model.Swif
 
 func FetchSwiftCodesByCountry(db *sql.DB, countryCode string) ([]model.SwiftCode, error) {
 	FetchSwiftCodesByCountryQuery := `
-		SELECT address, bank_name, country_iso2_code, is_headquarter, swift_code
+		SELECT address, bank_name, country_iso2_code, is_headquarter, swift_code, country_name
 		FROM swift_codes
 		WHERE country_iso2_code = $1
 		`
@@ -138,11 +138,10 @@ func FetchSwiftCodesByCountry(db *sql.DB, countryCode string) ([]model.SwiftCode
 	var results []model.SwiftCode
 	for rows.Next() {
 		var result model.SwiftCode
-		err := rows.Scan(&result.Address, &result.BankName, &result.CountryISO2, &result.IsHeadquarter, &result.SwiftCode)
+		err := rows.Scan(&result.Address, &result.BankName, &result.CountryISO2, &result.IsHeadquarter, &result.SwiftCode, &result.CountryName)
 		if err != nil {
 			return nil, err
 		}
-
 		results = append(results, result)
 	}
 	return results, nil
